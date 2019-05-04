@@ -114,7 +114,13 @@ class laytonImage():
             if laytonIn.read(4) == b'LIMG':
                 lengthHeader = int.from_bytes(laytonIn.read(4), byteorder = 'little')
                 offsetTileParam = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-                laytonIn.seek(6, 1) # UNK
+                
+                laytonIn.seek(2, 1) # UNK
+
+                offsetImageParam = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+
+                laytonIn.seek(2, 1) # UNK
+                
                 offsetTableTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 lengthTableTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 offsetTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
@@ -122,17 +128,13 @@ class laytonImage():
                 self.countPaletteDefinitions = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 self.lengthPalette = int.from_bytes(laytonIn.read(2), byteorder = 'little')
 
-                for pixelPower in range(1, 32):
-                    if (self.lengthPalette) <= (2 ** pixelPower):
-                        break
-                self.statBpp = pixelPower
-                self.statAlignedBpp = math.ceil(pixelPower / 4) * 4
+                self.statBpp = math.ceil(math.log(self.lengthPalette, 2))
+                self.statAlignedBpp = math.ceil(self.statBpp / 4) * 4
 
                 # UNKs here
                 laytonIn.seek(lengthHeader)
-                for indexColour in range(self.lengthPalette): # Colour order unknown, 16 bits probs 565
+                for indexColour in range(self.lengthPalette):
                     self.palette.append(colour.fromBytes(int.from_bytes(laytonIn.read(2), byteorder = 'little')))
-                    self.palette[-1].printColour()
                 # UNKs here
                 
                 laytonIn.seek(0, 2)            
@@ -142,20 +144,25 @@ class laytonImage():
                 for index in range(self.countTile):
                     self.tiles.append(tile())
                     self.tiles[-1].decode(laytonIn.read(int(self.countTileSize)), self.statAlignedBpp, self.palette)
+                    #self.tiles[-1].export("test_" + str(index) + ".dds")
 
                 laytonIn.seek(offsetTableTile)
                 for indexTile in range(lengthTableTile):
                     self.tilesReconstructed.append(self.tiles[int.from_bytes(laytonIn.read(2), byteorder = 'little')])
+                
+                laytonIn.seek(offsetImageParam + 10)    # Params change here across resolutions, it may change the colour masks
+                imageTileY = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                imageTileX = int(lengthTableTile / imageTileY)
 
                 outputImage = ddsImage()
-                outputImage.resX = 256
-                outputImage.resY = 192
+                outputImage.resX = imageTileX * 8
+                outputImage.resY = imageTileY * 8
                 outputImage.image = []
                 indexTile = 0
                 
-                for yTile in range(24):
+                for yTile in range(imageTileY):
                     outputImage.image.extend([[],[],[],[],[],[],[],[]])
-                    for xTile in range(32):
+                    for xTile in range(imageTileX):
                         for yRes in range(8):
                             outputImage.image[(yTile * 8) + yRes].extend(self.tilesReconstructed[indexTile].image[yRes])
                         indexTile += 1
@@ -171,10 +178,12 @@ class laytonImage():
     def printStats(self):
         if self.countTile > 0:
             print("Tiles: " + str(self.countTile))
+            
             try:
                 print("TSize: " + str(int(self.countTileSize)))
             except TypeError:
                 print("TSize: [IRREGULAR] " + str(self.countTileSizes))
+                
             print("BPP  : " + str(self.statAlignedBpp))
 
             if int(self.countTileSize / (self.statAlignedBpp / 8)) != 64:
@@ -185,6 +194,7 @@ class laytonImage():
 #testImage = laytonImage("assets//level5_a.cimg")    # 128x16, not mentioned anywhere (probably cropped using tiles?) 8bpp allows reading
 #testImage = laytonImage("assets//nintendo_b.cimg")  # 4bpp for reading
 #testImage = laytonImage("assets//mobi_b.cimg")
-testImage = laytonImage("assets//title_b.cimg")
+testImage = laytonImage("assets//save_a.cimg")
+#testImage = laytonImage("assets//title_b.cimg")
 testImage.load()
 testImage.printStats()
