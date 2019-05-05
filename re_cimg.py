@@ -1,25 +1,17 @@
 import math
 
-def bytesToBits(inBytes, lengthOut):
-    output = []
-    shiftedInput = inBytes
-    for bit in range(lengthOut):
-        output.insert(0, shiftedInput & 1)
-        shiftedInput = shiftedInput >> 1
-    return output
-
 class ddsImage():
     def __init__(self):
         self.resX = 0
         self.resY = 0
         self.image = []
-        self.colourLayout = 0
 
     def export(self, filename):
-        ddsHeader = bytearray(b''.join([b'DDS\x20\x7c\x00\x00\x00\x07\x10\x00\x00', self.resY.to_bytes(4, byteorder = 'little'),
-                                                    self.resX.to_bytes(4, byteorder = 'little'), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00']))
-        ddsHeader.extend(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x41\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x00\x00\xFF\x00\x00\xFF\x00\x00\xFF\x00\x00\x00\x00\x00\x00\xFF\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         
+        ddsHeader = bytearray(b''.join([b'DDS\x20\x7c\x00\x00\x00\x07\x10\x00\x00', self.resY.to_bytes(4, byteorder = 'little'),
+                                        self.resX.to_bytes(4, byteorder = 'little'), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00']))
+        ddsHeader.extend(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x41\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x00\x00\xFF\x00\x00\xFF\x00\x00\xFF\x00\x00\x00\x00\x00\x00\xFF\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+        # DDS flags set for RGBA32
         with open(filename, 'wb') as ddsOut:
             ddsOut.write(ddsHeader)
             for row in self.image:
@@ -35,38 +27,29 @@ class colour():
         self.g = g
         self.b = b
         self.a = a
-
-    def invert(self, includeAlpha = True):
-        self.r = 1 - self.r
-        self.g = 1 - self.g
-        self.b = 1 - self.b
-        if includeAlpha:
-            self.a = 1 - self.a
+            
+    def fromBytesLayton(encodedColour, pixelDivide = [1,5,5,5], pixelColour = [3,2,1,0], correctColour = False):
         
-    def printColour(self, index=0):
-        print("RGBA: " + str(index) + "\t[" + str(int(round(self.r * 255))) + "," + str(int(round(self.g * 255))) + "," + str(int(round(self.b * 255))) + ", " + str(int(round(self.a * 255))) + "]")
-
-    def fromBytesLayton(encodedColour, pixelDivide = [1,5,5,5], pixelColour = [3,2,1,0]):
-
-        encodedBits = bytesToBits(encodedColour, 16)
+        encodedBits = []
+        for bit in range(16):   # Change encodedColour from int to bits
+            encodedBits.insert(0, encodedColour & 1)
+            encodedColour = encodedColour >> 1
+            
         bitPosition = 0
         colourOut = colour(0,0,0,0)
-
         for indexColour in range(len(pixelColour)):
-            
             intensity = 0
-
             if pixelDivide[indexColour] > 1:
-            
                 for bitColourAppend in range(pixelDivide[indexColour]):
-                
                     intensity += ((2 ** (7 - bitColourAppend)) * encodedBits[bitPosition])
                     bitPosition += 1
+                if correctColour:               # Colours can be corrected by scaling the intensity properly
+                    intensity = intensity / 248 # Reduced palette puts actual max at 248
+                else:
+                    intensity = intensity / 255 #     but the game treats the max at 255, leaving grey whites
             else:
-                intensity = 255 * encodedBits[bitPosition]
+                intensity = encodedBits[bitPosition]
                 bitPosition += 1
-                
-            intensity = intensity / 255
             
             if pixelColour[indexColour] == 0:
                 colourOut.r = intensity
@@ -76,7 +59,6 @@ class colour():
                 colourOut.b = intensity
             else:
                 colourOut.a = intensity
-
         return colourOut
 
 class tile(ddsImage):
@@ -86,21 +68,14 @@ class tile(ddsImage):
     def decode(self, data, bpp, palette, xRes = 8, yRes = 8):
         self.resX = xRes
         self.resY = yRes
-        
-        tempImage = []
 
         for indexPixel in range(int(xRes * yRes * (bpp/8))):
             pixelByte = data[indexPixel]
+            if indexPixel % xRes == 0:
+                self.image.append([])
             for indexSubPixel in range(int(1/(bpp/8))):
-                tempImage.append(pixelByte & ((2**bpp) - 1))
+                self.image[indexPixel // yRes].append(palette[pixelByte & ((2**bpp) - 1)])
                 pixelByte = pixelByte >> bpp
-            
-        indexDataByte = 0
-        for indexRow in range(xRes):
-            self.image.append([])
-            for indexColumn in range(yRes):
-                self.image[-1].append(palette[tempImage[indexDataByte]])
-                indexDataByte += 1
                 
 
 class laytonImage():
@@ -116,10 +91,10 @@ class laytonImage():
         self.tiles = []
         self.tilesReconstructed = []
         
-        self.statBpp = 0
         self.statAlignedBpp = 0
 
     def load(self):
+        
         with open(self.filename, 'rb') as laytonIn:
             if laytonIn.read(4) == b'LIMG':
                 lengthHeader = int.from_bytes(laytonIn.read(4), byteorder = 'little')
@@ -137,9 +112,7 @@ class laytonImage():
                 self.countTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 self.countPaletteDefinitions = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 self.lengthPalette = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-
-                self.statBpp = math.ceil(math.log(self.lengthPalette, 2))
-                self.statAlignedBpp = math.ceil(self.statBpp / 4) * 4
+                self.statAlignedBpp = math.ceil(math.ceil(math.log(self.lengthPalette, 2)) / 4) * 4
 
                 # UNKs here
                 laytonIn.seek(lengthHeader)
@@ -176,22 +149,13 @@ class laytonImage():
                             outputImage.image[(yTile * 8) + yRes].extend(self.tilesReconstructed[indexTile].image[yRes])
                         indexTile += 1
 
-                outputImage.export("test.dds")
+                outputImage.export(self.filename.split("//")[-1][0:-5] + ".dds")
                         
                 return True
             
             else:
                 print("Bad file magic!")
                 return False
-
-    def printStats(self):
-        if self.countTile > 0:
-            print("Tiles: " + str(self.countTile))
-            print("TSize: " + str(int(self.countTileSize)))
-            print("BPP  : " + str(self.statAlignedBpp))
-        else:
-            print("Image not imported!")
             
-testImage = laytonImage("assets//nintendo_b.cimg")
+testImage = laytonImage("assets//c101.cimg")
 testImage.load()
-testImage.printStats()
