@@ -18,15 +18,16 @@ class ddsImage():
     def export(self, filename):
         ddsHeader = bytearray(b''.join([b'DDS\x20\x7c\x00\x00\x00\x07\x10\x00\x00', self.resY.to_bytes(4, byteorder = 'little'),
                                                     self.resX.to_bytes(4, byteorder = 'little'), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00']))
-        ddsHeader.extend(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x40\x00\x00\x00\x00\x00\x00\x00\x18\x00\x00\x00\x00\x00\xFF\x00\x00\xFF\x00\x00\xFF\x00\x00\x00\x00\x00\x00\x00\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+        ddsHeader.extend(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x41\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x00\x00\xFF\x00\x00\xFF\x00\x00\xFF\x00\x00\x00\x00\x00\x00\xFF\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         
         with open(filename, 'wb') as ddsOut:
             ddsOut.write(ddsHeader)
             for row in self.image:
                 for pixel in row:
-                    ddsOut.write(round(pixel.r * 255).to_bytes(1, byteorder = 'little'))
-                    ddsOut.write(round(pixel.g * 255).to_bytes(1, byteorder = 'little'))
                     ddsOut.write(round(pixel.b * 255).to_bytes(1, byteorder = 'little'))
+                    ddsOut.write(round(pixel.g * 255).to_bytes(1, byteorder = 'little'))
+                    ddsOut.write(round(pixel.r * 255).to_bytes(1, byteorder = 'little'))
+                    ddsOut.write(round(pixel.a * 255).to_bytes(1, byteorder = 'little'))
         
 class colour():
     def __init__(self, r = 1, g = 1, b = 1, a = 1):
@@ -42,23 +43,31 @@ class colour():
         if includeAlpha:
             self.a = 1 - self.a
         
-    def printColour(self):
-        print("RGBA: [" + str(round(self.r, 2)) + ", " + str(round(self.g, 2)) + ", " + str(round(self.b, 2)) + ", " + str(round(self.a, 2)) + "]")
-        
-    def fromBytes(encodedColour, pixelDivide = [6,5,5,0], pixelColour = [0,1,2,3]):
+    def printColour(self, index=0):
+        print("RGBA: " + str(index) + "\t[" + str(int(round(self.r * 255))) + "," + str(int(round(self.g * 255))) + "," + str(int(round(self.b * 255))) + ", " + str(int(round(self.a * 255))) + "]")
+
+    def fromBytesLayton(encodedColour, pixelDivide = [1,5,5,5], pixelColour = [3,2,1,0]):
+
         encodedBits = bytesToBits(encodedColour, 16)
         bitPosition = 0
         colourOut = colour(0,0,0,0)
 
         for indexColour in range(len(pixelColour)):
+            
             intensity = 0
-            for bitColourAppend in range(pixelDivide[indexColour]):
-                intensity += ((2 ** bitColourAppend) * encodedBits[bitPosition])
-                bitPosition += 1
-            if pixelDivide[indexColour] > 0:
-                intensity = intensity / ((2**pixelDivide[indexColour]) - 1)
+
+            if pixelDivide[indexColour] > 1:
+            
+                for bitColourAppend in range(pixelDivide[indexColour]):
+                
+                    intensity += ((2 ** (7 - bitColourAppend)) * encodedBits[bitPosition])
+                    bitPosition += 1
             else:
-                intensity = 0  
+                intensity = 255 * encodedBits[bitPosition]
+                bitPosition += 1
+                
+            intensity = intensity / 255
+            
             if pixelColour[indexColour] == 0:
                 colourOut.r = intensity
             elif pixelColour[indexColour] == 1:
@@ -67,6 +76,7 @@ class colour():
                 colourOut.b = intensity
             else:
                 colourOut.a = intensity
+
         return colourOut
 
 class tile(ddsImage):
@@ -134,7 +144,7 @@ class laytonImage():
                 # UNKs here
                 laytonIn.seek(lengthHeader)
                 for indexColour in range(self.lengthPalette):
-                    self.palette.append(colour.fromBytes(int.from_bytes(laytonIn.read(2), byteorder = 'little')))
+                    self.palette.append(colour.fromBytesLayton(int.from_bytes(laytonIn.read(2), byteorder = 'little')))
                 # UNKs here
                 
                 laytonIn.seek(0, 2)            
@@ -144,13 +154,12 @@ class laytonImage():
                 for index in range(self.countTile):
                     self.tiles.append(tile())
                     self.tiles[-1].decode(laytonIn.read(int(self.countTileSize)), self.statAlignedBpp, self.palette)
-                    #self.tiles[-1].export("test_" + str(index) + ".dds")
 
                 laytonIn.seek(offsetTableTile)
                 for indexTile in range(lengthTableTile):
                     self.tilesReconstructed.append(self.tiles[int.from_bytes(laytonIn.read(2), byteorder = 'little')])
                 
-                laytonIn.seek(offsetImageParam + 10)    # Params change here across resolutions, it may change the colour masks
+                laytonIn.seek(offsetImageParam + 10)
                 imageTileY = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 imageTileX = int(lengthTableTile / imageTileY)
 
@@ -178,23 +187,11 @@ class laytonImage():
     def printStats(self):
         if self.countTile > 0:
             print("Tiles: " + str(self.countTile))
-            
-            try:
-                print("TSize: " + str(int(self.countTileSize)))
-            except TypeError:
-                print("TSize: [IRREGULAR] " + str(self.countTileSizes))
-                
+            print("TSize: " + str(int(self.countTileSize)))
             print("BPP  : " + str(self.statAlignedBpp))
-
-            if int(self.countTileSize / (self.statAlignedBpp / 8)) != 64:
-                print("Irregular pixel mapping!")
         else:
             print("Image not imported!")
             
-#testImage = laytonImage("assets//level5_a.cimg")    # 128x16, not mentioned anywhere (probably cropped using tiles?) 8bpp allows reading
-#testImage = laytonImage("assets//nintendo_b.cimg")  # 4bpp for reading
-#testImage = laytonImage("assets//mobi_b.cimg")
-testImage = laytonImage("assets//save_a.cimg")
-#testImage = laytonImage("assets//title_b.cimg")
+testImage = laytonImage("assets//nintendo_b.cimg")
 testImage.load()
 testImage.printStats()
