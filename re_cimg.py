@@ -74,7 +74,7 @@ class tile(ddsImage):
             if indexPixel % xRes == 0:
                 self.image.append([])
             for indexSubPixel in range(int(1/(bpp/8))):
-                self.image[indexPixel // yRes].append(palette[pixelByte & ((2**bpp) - 1)])
+                self.image[indexPixel // yRes].append(palette[(pixelByte & ((2**bpp) - 1)) % len(palette)])
                 pixelByte = pixelByte >> bpp
                 
 
@@ -84,8 +84,6 @@ class laytonImage():
         self.filename = filename
         
         self.countTile = 0
-        self.countTileSize = 0
-        self.countPaletteDefinitions = 0
 
         self.palette = []
         self.tiles = []
@@ -110,23 +108,22 @@ class laytonImage():
                 lengthTableTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 offsetTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 self.countTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-                self.countPaletteDefinitions = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                
+                laytonIn.seek(2, 1) # UNK
+                
                 self.lengthPalette = int.from_bytes(laytonIn.read(2), byteorder = 'little')
                 self.statAlignedBpp = math.ceil(math.ceil(math.log(self.lengthPalette, 2)) / 4) * 4
 
-                # UNKs here
+                # UNKs
                 laytonIn.seek(lengthHeader)
                 for indexColour in range(self.lengthPalette):
                     self.palette.append(colour.fromBytesLayton(int.from_bytes(laytonIn.read(2), byteorder = 'little')))
-                # UNKs here
-                
-                laytonIn.seek(0, 2)            
-                self.countTileSize = (laytonIn.tell() - offsetTile) / self.countTile
+                # UNKs
 
                 laytonIn.seek(offsetTile)
                 for index in range(self.countTile):
                     self.tiles.append(tile())
-                    self.tiles[-1].decode(laytonIn.read(int(self.countTileSize)), self.statAlignedBpp, self.palette)
+                    self.tiles[-1].decode(laytonIn.read(int((self.statAlignedBpp * 64) / 8)), self.statAlignedBpp, self.palette)    # decode 64 pixels
 
                 laytonIn.seek(offsetTableTile)
                 for indexTile in range(lengthTableTile):
@@ -157,5 +154,5 @@ class laytonImage():
                 print("Bad file magic!")
                 return False
             
-testImage = laytonImage("assets//c101.cimg")
+testImage = laytonImage("assets//evt_chapt.cimg")
 testImage.load()
