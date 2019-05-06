@@ -1,0 +1,13 @@
+----------------------------------------------------------------
+
+RE Notes for Professor Layton and the Lost Future (LAYTON3)
+
+This game uses a newer, more advanced engine than Curious
+	Village and adds several new file formats, all of which
+	hold similar data to that of earlier games.
+
+----------------------------------------------------------------
+
+CIMG - Finished		Tile-based image format
+LPC2 - Finished		Simple (uncompressed?) archive
+LBIN - WIP			(?) Game scripts

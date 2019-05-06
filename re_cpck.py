@@ -54,7 +54,11 @@ class laytonPack():
                                                               int.from_bytes(laytonIn.read(4), byteorder = 'little')))
                         self.contents[indexFile].getName(laytonIn, offsetTableName)
                         self.contents[indexFile].getContents(laytonIn, offsetData)
-                        
+
+                 else:
+                     print("File is not an LPC2 archive!")
+                     return False
+                    
             for indexFile in range(countFile):
                 with open(self.contents[indexFile].name, 'wb') as laytonOut:
                     laytonOut.write(self.contents[indexFile].data)
@@ -64,4 +68,4 @@ class laytonPack():
             return False
 
 test = laytonPack()
-test.load("00.cpck")
+test.load("lt3_map.cpck")
