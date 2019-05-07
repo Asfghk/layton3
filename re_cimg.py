@@ -71,10 +71,10 @@ class tile(ddsImage):
 
         for indexPixel in range(int(xRes * yRes * (bpp/8))):
             pixelByte = data[indexPixel]
-            if indexPixel % xRes == 0:
+            if indexPixel % int(xRes * bpp/8) == 0:
                 self.image.append([])
             for indexSubPixel in range(int(1/(bpp/8))):
-                self.image[indexPixel // yRes].append(palette[(pixelByte & ((2**bpp) - 1)) % len(palette)])
+                self.image[-1].append(palette[(pixelByte & ((2**bpp) - 1)) % len(palette)])
                 pixelByte = pixelByte >> bpp
                 
 
@@ -154,5 +154,5 @@ class laytonImage():
                 print("Bad file magic!")
                 return False
             
-testImage = laytonImage("assets//evt_chapt.cimg")
+testImage = laytonImage("assets//mobi_b.cimg")
 testImage.load()
