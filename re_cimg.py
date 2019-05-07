@@ -6,12 +6,12 @@ class ddsImage():
         self.resY = 0
         self.image = []
 
-    def export(self, filename):
+    def export(self, filename): # Change to 16bpp RGBA
         
         ddsHeader = bytearray(b''.join([b'DDS\x20\x7c\x00\x00\x00\x07\x10\x00\x00', self.resY.to_bytes(4, byteorder = 'little'),
                                         self.resX.to_bytes(4, byteorder = 'little'), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00']))
         ddsHeader.extend(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x41\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x00\x00\xFF\x00\x00\xFF\x00\x00\xFF\x00\x00\x00\x00\x00\x00\xFF\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-        # DDS flags set for RGBA32
+        # DDS flags set for BGRA32 - wasteful!
         with open(filename, 'wb') as ddsOut:
             ddsOut.write(ddsHeader)
             for row in self.image:
@@ -154,5 +154,5 @@ class laytonImage():
                 print("Bad file magic!")
                 return False
             
-testImage = laytonImage("assets//mobi_b.cimg")
+testImage = laytonImage("assets//nintendo_b.cimg")
 testImage.load()
