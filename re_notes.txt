@@ -21,3 +21,19 @@ Text Operators												LBIN
 <W***>				Wait <***> ms
 <T>					Tap
 <A*/*>				Transition animation
+
+----------------------------------------------------------------
+
+lt3/menu
+Images
+fk_a				Mystery screen - bottom
+nzb_a				Beasly's Puzzle List - bottom
+s_menu_a			Secrets screen
+
+lt3/menu/uk
+Images
+fk_bs				Mystery screen - top
+nzb_b				Beasly's Puzzle List - top
+sra_00...35			Credits screens?
+v_bus_a				Bus stop screen
+v_gim_a				Clive's machine transport - bottom
