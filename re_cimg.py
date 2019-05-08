@@ -1,25 +1,47 @@
 import math
 
+useAccurateColour = False   # Double the bitdepth to make colours accurate to hardware (imitate bad scaling)
+
 class ddsImage():
     def __init__(self):
         self.resX = 0
         self.resY = 0
         self.image = []
 
-    def export(self, filename): # Change to 16bpp RGBA
-        
-        ddsHeader = bytearray(b''.join([b'DDS\x20\x7c\x00\x00\x00\x07\x10\x00\x00', self.resY.to_bytes(4, byteorder = 'little'),
-                                        self.resX.to_bytes(4, byteorder = 'little'), b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00']))
-        ddsHeader.extend(b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x41\x00\x00\x00\x00\x00\x00\x00\x20\x00\x00\x00\x00\x00\xFF\x00\x00\xFF\x00\x00\xFF\x00\x00\x00\x00\x00\x00\xFF\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
-        # DDS flags set for BGRA32 - wasteful!
+    def export(self, filename):
+        ddsHeader = bytearray(b''.join([b'DDS \x7c\x00\x00\x00\x07\x10\x00\x00',                        # Header, enable the required bits. PixelFormat is only enabled field        
+                                self.resY.to_bytes(4, byteorder = 'little'),                            # Write everything else
+                                self.resX.to_bytes(4, byteorder = 'little'),                    
+                                b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',                    # Blank out unused fields, then write the reserved data
+                                b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+                                b'\x20\x00\x00\x00\x41\x00\x00\x00\x00\x00\x00\x00']))                 # Enable RGB flags, enable alpha mask, set 16 bit
+        if (useAccurateColour):
+            ddsHeader.extend(b'\x20\x00\x00\x00\x00\x00\xFF\x00\x00\xFF\x00\x00\xFF\x00\x00\x00\x00\x00\x00\xFF')
+        else:
+            ddsHeader.extend(b'\x10\x00\x00\x00')
+            ddsHeader.extend(((2 ** 10) + (2 ** 11) + (2 ** 12) + (2 ** 13) + (2 ** 14)).to_bytes(4, byteorder = 'little'))      # B mask
+            ddsHeader.extend(((2 ** 5) + (2 ** 6) + (2 ** 7) + (2 ** 8) + (2 ** 9)).to_bytes(4, byteorder = 'little'))           # G mask
+            ddsHeader.extend(((2 ** 0) + (2 ** 1) + (2 ** 2) + (2 ** 3) + (2 ** 4)).to_bytes(4, byteorder = 'little'))           # R mask (rightmost bits)
+            ddsHeader.extend((2 ** 15).to_bytes(4, byteorder = 'little'))                                                        # A (clipping) mask
+
+        ddsHeader.extend(b'\x00\x10\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
+            
         with open(filename, 'wb') as ddsOut:
             ddsOut.write(ddsHeader)
             for row in self.image:
                 for pixel in row:
-                    ddsOut.write(round(pixel.b * 255).to_bytes(1, byteorder = 'little'))
-                    ddsOut.write(round(pixel.g * 255).to_bytes(1, byteorder = 'little'))
-                    ddsOut.write(round(pixel.r * 255).to_bytes(1, byteorder = 'little'))
-                    ddsOut.write(round(pixel.a * 255).to_bytes(1, byteorder = 'little'))
+                    if useAccurateColour:
+                        ddsOut.write(round(pixel.b * 255).to_bytes(1, byteorder = 'little'))
+                        ddsOut.write(round(pixel.g * 255).to_bytes(1, byteorder = 'little'))
+                        ddsOut.write(round(pixel.r * 255).to_bytes(1, byteorder = 'little'))
+                        ddsOut.write(round(pixel.a * 255).to_bytes(1, byteorder = 'little'))
+                    else:
+                        tempPixel = 0
+                        tempPixel += round(pixel.b * 31)
+                        tempPixel += round(pixel.g * 31) << 5
+                        tempPixel += round(pixel.r * 31) << 10
+                        tempPixel += round(pixel.a) << 15
+                        ddsOut.write(tempPixel.to_bytes(2, byteorder = 'little'))    
         
 class colour():
     def __init__(self, r = 1, g = 1, b = 1, a = 1):
@@ -28,10 +50,10 @@ class colour():
         self.b = b
         self.a = a
             
-    def fromBytesLayton(encodedColour, pixelDivide = [1,5,5,5], pixelColour = [3,2,1,0], correctColour = False):
+    def fromBytesLayton(encodedColour, pixelDivide = [1,5,5,5], pixelColour = [3,2,1,0]):
         
         encodedBits = []
-        for bit in range(16):   # Change encodedColour from int to bits
+        for bit in range(16):                       # Change encodedColour from int to bits
             encodedBits.insert(0, encodedColour & 1)
             encodedColour = encodedColour >> 1
             
@@ -43,10 +65,10 @@ class colour():
                 for bitColourAppend in range(pixelDivide[indexColour]):
                     intensity += ((2 ** (7 - bitColourAppend)) * encodedBits[bitPosition])
                     bitPosition += 1
-                if correctColour:               # Colours can be corrected by scaling the intensity properly
-                    intensity = intensity / 248 # Reduced palette puts actual max at 248
+                if useAccurateColour:               # Colours can be corrected by scaling the intensity properly
+                    intensity = intensity / 255     # The game treats the highest colour as 255
                 else:
-                    intensity = intensity / 255 #     but the game treats the max at 255, leaving grey whites
+                    intensity = intensity / 248     #     but the highest colour is actually 248
             else:
                 intensity = encodedBits[bitPosition]
                 bitPosition += 1
@@ -74,7 +96,7 @@ class tile(ddsImage):
             if indexPixel % int(xRes * bpp/8) == 0:
                 self.image.append([])
             for indexSubPixel in range(int(1/(bpp/8))):
-                self.image[indexPixel // int(xRes * bpp/8)].append(palette[(pixelByte & ((2**bpp) - 1)) % len(palette)])
+                self.image[-1].append(palette[(pixelByte & ((2**bpp) - 1)) % len(palette)])
                 pixelByte = pixelByte >> bpp
                 
 
@@ -154,5 +176,5 @@ class laytonImage():
                 print("Bad file magic!")
                 return False
             
-testImage = laytonImage("assets//mobi_b.cimg")
+testImage = laytonImage("assets//title_b.cimg")
 testImage.load()
