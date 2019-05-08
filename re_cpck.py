@@ -54,8 +54,7 @@ class laytonPack():
                                                               int.from_bytes(laytonIn.read(4), byteorder = 'little')))
                         self.contents[indexFile].getName(laytonIn, offsetTableName)
                         self.contents[indexFile].getContents(laytonIn, offsetData)
-
-                 else:
+                else:
                      print("File is not an LPC2 archive!")
                      return False
                     
@@ -68,4 +67,4 @@ class laytonPack():
             return False
 
 test = laytonPack()
-test.load("lt3_map.cpck")
+test.load(r"assets\limg\title_ani.cani")

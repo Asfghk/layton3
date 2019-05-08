@@ -11,3 +11,13 @@ This game uses a newer, more advanced engine than Curious
 CIMG - Finished		Tile-based image format
 LPC2 - Finished		Simple (uncompressed?) archive
 LBIN - WIP			(?) Game scripts
+
+----------------------------------------------------------------
+
+Text Operators												LBIN
+<V00**>				Start corresponding clip from voice bank
+</V>				Lock voice clip to current text
+<W>					Wait (defined amount of time?)
+<W***>				Wait <***> ms
+<T>					Tap
+<A*/*>				Transition animation

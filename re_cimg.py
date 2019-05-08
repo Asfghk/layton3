@@ -126,14 +126,18 @@ class laytonImage():
 
                 laytonIn.seek(2, 1) # UNK
                 
-                offsetTableTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-                lengthTableTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-                offsetTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-                self.countTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-                
-                laytonIn.seek(2, 1) # UNK
-                
-                self.lengthPalette = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                offsetTableTile     = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                lengthTableTile     = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                offsetTile          = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                self.countTile      = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                countPalette        = int.from_bytes(laytonIn.read(2), byteorder = 'little') # Always 1
+                self.lengthPalette  = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+
+                outputImage = ddsImage()
+                outputImage.resX = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                outputImage.resY = int((lengthTableTile * 64) / outputImage.resX)
+                outputImage.image = []
+
                 self.statAlignedBpp = math.ceil(math.ceil(math.log(self.lengthPalette, 2)) / 4) * 4
 
                 # UNKs
@@ -149,21 +153,22 @@ class laytonImage():
 
                 laytonIn.seek(offsetTableTile)
                 for indexTile in range(lengthTableTile):
-                    self.tilesReconstructed.append(self.tiles[int.from_bytes(laytonIn.read(2), byteorder = 'little')])
+                    indexSelectedTile = int.from_bytes(laytonIn.read(2), byteorder = 'little')
+                    if indexSelectedTile == 65535: # Tile is meant to be blanked out
+                        tempTile = tile()
+                        for xResFill in range(8):
+                            tempTile.image.append([])
+                            for yResFill in range(8):
+                                tempTile.image[xResFill].append(colour(1,1,1,0))
+                        self.tilesReconstructed.append(tempTile)
+                    else:
+                        self.tilesReconstructed.append(self.tiles[indexSelectedTile % self.countTile])
                 
-                laytonIn.seek(offsetImageParam + 10)
-                imageTileY = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-                imageTileX = int(lengthTableTile / imageTileY)
-
-                outputImage = ddsImage()
-                outputImage.resX = imageTileX * 8
-                outputImage.resY = imageTileY * 8
-                outputImage.image = []
                 indexTile = 0
                 
-                for yTile in range(imageTileY):
+                for yTile in range(int(outputImage.resY / 8)):
                     outputImage.image.extend([[],[],[],[],[],[],[],[]])
-                    for xTile in range(imageTileX):
+                    for xTile in range(int(outputImage.resX / 8)):
                         for yRes in range(8):
                             outputImage.image[(yTile * 8) + yRes].extend(self.tilesReconstructed[indexTile].image[yRes])
                         indexTile += 1
@@ -176,5 +181,5 @@ class laytonImage():
                 print("Bad file magic!")
                 return False
             
-testImage = laytonImage("assets//title_b.cimg")
+testImage = laytonImage("assets//c101.cimg")
 testImage.load()
