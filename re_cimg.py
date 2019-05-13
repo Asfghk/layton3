@@ -159,7 +159,7 @@ class laytonImage():
                         for xResFill in range(8):
                             tempTile.image.append([])
                             for yResFill in range(8):
-                                tempTile.image[xResFill].append(colour(1,1,1,0))
+                                tempTile.image[xResFill].append(colour(0,0,0,0))
                         self.tilesReconstructed.append(tempTile)
                     else:
                         self.tilesReconstructed.append(self.tiles[indexSelectedTile % self.countTile])
