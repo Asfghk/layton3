@@ -1,55 +1,92 @@
 # LSCR
 
-def getNullTerminatedString(reader, startPosition):
-    posStart = reader.tell()
-    reader.seek(startPosition)
-    output = ""
-    while True:
-        stringByte = reader.read(1)
-        if stringByte == b'\x00':
-            break
-        else:
-            output += stringByte.decode('ascii')
-    reader.seek(posStart)
-    return output
+from struct import unpack
 
-class laytonOpcode():
-    def __init__(self, opcode, operand=None):
-        self.opcode = opcode
-        self.operand = operand
+class LaytonOperand():
+    def __init__(self, operandType, operandValue):
+        self.type = operandType
+        self.value = operandValue
 
-class laytonScript():
-    def __init__(self):
-        self.opcodes = []
+    def __str__(self):
+        return str(self.type) + " " + str(self.value)
 
-    def load(self, filename):
+class LaytonInstruction():
+    def __init__(self, instructionBytes):
+        self.unk = instructionBytes[0:2]
+        self.countOperands = int.from_bytes(instructionBytes[2:4], byteorder = 'little')
+        self.indexOperandsStart = int.from_bytes(instructionBytes[4:], byteorder = 'little')
+        self.operands = []
+
+    def __str__(self):
+        output = str(self.unk) + "\t" + str(self.countOperands) + " ops"
+        for operand in self.operands:
+            output += "\n\t" + str(operand)
+        return output + "\n"
+
+class LaytonScript():
+    def __init__(self, filename):
+        self.bankString = {}
+        self.bankOperands = {}
+        self.commands = []
         try:
             with open(filename, 'rb') as laytonIn:
-                if laytonIn.read(4) == b'LSCR':
-                    countOpcode     = int.from_bytes(laytonIn.read(2), byteorder = 'little')
-                    lengthOpcode    = int.from_bytes(laytonIn.read(2), byteorder = 'little')    # UNK, usually 16
-                    offsetParam     = int.from_bytes(laytonIn.read(4), byteorder = 'little')
-                    offsetData      = int.from_bytes(laytonIn.read(4), byteorder = 'little')
-
-                    for indexOpcode in range(countOpcode):
-                        self.opcodes.append(laytonOpcode(laytonIn.read(int(lengthOpcode / 8)), operand = laytonIn.read(6)))
-                        print("[PROC    ] Added opcode!")
-
-                    # This functionality is only valid for text scripts
-                    laytonIn.seek(offsetParam + 1)
-                    countText = int.from_bytes(laytonIn.read(4), byteorder = 'little')
-                    for indexText in range(countText):
-                        laytonIn.seek(11, 1)
-                        print(getNullTerminatedString(laytonIn, offsetData + int.from_bytes(laytonIn.read(4), byteorder = 'little')))
-                    
+                if self.load(laytonIn):
+                    print("Read okay!")
                 else:
-                    return False
-                
-            return True
-
+                    print("Read fail!")
         except FileNotFoundError:
             print("File does not exist!")
-            return False
 
-test = laytonScript()
-test.load(r"assets\lbin\00_002000.lbin")
+    def populateBankString(self, reader, offsetString):
+        reader.seek(0,2)
+        lengthFile = reader.tell()
+        reader.seek(offsetString)
+        tempString = bytearray(b'')
+        while reader.tell() != lengthFile:
+            tempByte = reader.read(1)
+            if tempByte == b'\x00':
+                self.bankString[reader.tell() - offsetString - len(tempString) - 1] = tempString.decode("shift-jis")
+                tempString = bytearray(b'')
+            else:
+                tempString.extend(tempByte)
+
+    def populateBankOperands(self, reader, countOperands, offsetCommand):
+        reader.seek(offsetCommand)
+        for indexOperand in range(countOperands):
+            tempOperandType = reader.read(1)
+            if tempOperandType == b'\x00':
+                tempOperand = int.from_bytes(reader.read(4), byteorder = 'little', signed=True)
+            elif tempOperandType == b'\x01':
+                tempOperand = unpack("<f", reader.read(4))[0]
+            elif tempOperandType == b'\x02':
+                tempOperand = self.bankString[int.from_bytes(reader.read(4), byteorder = 'little')]
+            else:
+                tempOperand = reader.read(4)
+            self.bankOperands[indexOperand] = LaytonOperand(tempOperandType, tempOperand)
+
+    def populateInstructionOperands(self):
+        for command in self.commands:
+            for indexInstruction in range(command.indexOperandsStart, command.indexOperandsStart + command.countOperands):
+                command.operands.append(self.bankOperands[indexInstruction])
+    
+    def load(self, reader):
+        if reader.read(4) == b'LSCR':
+            countCommand = int.from_bytes(reader.read(2), byteorder = 'little')
+            offsetHeader = int.from_bytes(reader.read(2), byteorder = 'little')
+            offsetCommand = int.from_bytes(reader.read(4), byteorder = 'little')
+            offsetString = int.from_bytes(reader.read(4), byteorder = 'little')
+
+            self.populateBankString(reader, offsetString)
+
+            countOperands = 0
+            reader.seek(offsetHeader)
+            for indexCommand in range(countCommand):
+                self.commands.append(LaytonInstruction(reader.read(8)))
+                countOperands = max(countOperands, self.commands[indexCommand].indexOperandsStart + self.commands[indexCommand].countOperands)
+
+            self.populateBankOperands(reader, countOperands, offsetCommand)
+            self.populateInstructionOperands()
+            
+            return True
+        else:
+            return False
