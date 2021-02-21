@@ -4,7 +4,7 @@
 
 ### Scripts
 * <b>asset_image</b> for converting animations or backgrounds to PNGs or creating backgrounds
-* <b>asset</b> for extracting or creating LCP2 containers
+* <b>asset</b> for extracting or creating LPC2 containers
 * <b>asset_script</b> for parsing LSCR script files
 
 ### Format Progression
