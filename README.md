@@ -12,3 +12,6 @@
 * <b>CANI</b> - Complete, can extract full frames of images
 * <b>LPCK</b> - Complete
 * <b>LSCR</b> - Complete, can print all commands
+
+### Credits
+* Tinke and DSDecmp for NDS decompression routines
